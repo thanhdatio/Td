@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jesse Livermore Chân Kinh (M15 / H4 / 1D–All) — Crypto Entry &amp; Stop-Loss Analyzer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    body { background-color: #090e1a; color: #e2e8f0; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .card { background: #11192d; border: 1px solid #1e293b; border-radius: 12px; }
+    .drop-zone { border: 2px dashed #334155; transition: all 0.2s ease; }
+    .drop-zone.dragover { border-color: #f59e0b; background: rgba(245, 158, 11, 0.08); }
+    .badge-go { background: rgba(16, 185, 129, 0.16); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); }
+    .badge-stop { background: rgba(239, 68, 68, 0.16); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35); }
+    .badge-wait { background: rgba(245, 158, 11, 0.16); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-6">
+  <div class="max-w-7xl mx-auto space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+      <div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="px-2.5 py-1 text-xs font-bold rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">JESSE LIVERMORE CHÂN KINH</span>
+          <span class="px-2.5 py-1 text-xs font-semibold rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">M15 • H4 • 1D • 7D • 1M • 1Y • ALL</span>
+          <span class="px-2.5 py-1 text-xs font-semibold rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">DOW C1/C2 • CẢN • SIDEWAY • ĐÁM ĐÔNG</span>
+        </div>
+        <h1 class="text-xl md:text-2xl font-bold text-white tracking-tight mt-1.5">Công Cụ Điểm Vào Lệnh &amp; Stop-Loss Theo Phương Pháp Jesse Livermore UG</h1>
+        <p class="text-xs md:text-sm text-slate-400 mt-1">"Trade what you see, not what you think" • "Đứng ngoài thị trường là đã chiến thắng 80%" • Tích hợp khung <strong class="text-amber-300">M15 (15m)</strong> &amp; <strong class="text-amber-300">H4 (4h)</strong>.</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button id="btnReset" class="px-3 py-2 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">Xóa dữ liệu</button>
+        <label for="fileInput" class="cursor-pointer px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 transition shadow-lg shadow-amber-500/20">
+          + Import CSV Lịch Sử (M15, H4, 1D...)
+        </label>
+        <input id="fileInput" type="file" accept=".csv" multiple class="hidden" />
+      </div>
+    </div>
+
+    <!-- Drop Zone -->
+    <div id="dropZone" class="drop-zone card p-5 text-center cursor-pointer">
+      <div class="flex flex-col items-center justify-center space-y-1.5">
+        <svg class="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+        </svg>
+        <p class="text-sm font-medium text-slate-200">Kéo thả các file CSV lịch sử giá vào đây (<code class="text-amber-300">BTC_M15_...csv</code>, <code class="text-amber-300">BTC_H4_...csv</code>, <code class="text-amber-300">BTC_1D_...csv</code>, <code class="text-amber-300">BTC_7D_...csv</code>, <code class="text-amber-300">BTC_1M_...csv</code>, <code class="text-amber-300">BTC_1Y_...csv</code>, <code class="text-amber-300">BTC_All_...csv</code>)</p>
+        <p class="text-xs text-slate-400">Tự nhận diện khung M15, H4, 1D, 7D, 1M, 1Y, All theo tên file hoặc khoảng cách thời gian giữa các dòng dữ liệu; cho phép đổi khung trực tiếp sau khi import.</p>
+      </div>
+      <div id="loadedFilesBar" class="mt-3 flex flex-wrap justify-center gap-2 hidden"></div>
+    </div>
+
+    <!-- Livermore Discipline & Risk Controls -->
+    <div class="card p-4 space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
+        <span class="text-xs font-bold uppercase tracking-wider text-amber-400">1. Bộ Lọc Tâm Lý, Khung Tác Chiến (M15 / H4 / Dow C1) &amp; Quản Lý Vốn</span>
+        <span class="text-xs text-slate-400">Không xúc động / Không gỡ thua / Không đu đỉnh</span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Trạng thái cảm xúc hiện tại</label>
+          <select id="moodFilter" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+            <option value="calm" selected>Điềm tĩnh / Tỉnh táo / Kỷ luật</option>
+            <option value="fomo_hype">Đang hưng phấn / Tiếc nuối (FOMO)</option>
+            <option value="revenge">Đang cay cú / Muốn gỡ lệnh thua</option>
+            <option value="emotional">Đang buồn / Bực bội / Say / Xúc động</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Khung tác chiến (Dow C1)</label>
+          <select id="dowHorizon" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+            <option value="h4_m15" selected>H4 (C1) + M15 (Tinh chỉnh/Vào)</option>
+            <option value="m15_scalp">M15 chủ đạo (Ngắn/Trong phiên)</option>
+            <option value="h4_swing">H4 chủ đạo (Swing / Trung hạn)</option>
+            <option value="swing">Trung hạn (1M + 1Y)</option>
+            <option value="position">Vị thế / Chu kỳ (1Y + All)</option>
+            <option value="intraday">1D + 7D</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Khung tinh chỉnh vào lệnh</label>
+          <select id="execTfSelect" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+            <option value="auto" selected>Tự động (Ưu tiên M15 → 1D → 7D)</option>
+            <option value="M15">M15 (15 phút)</option>
+            <option value="H4">H4 (4 giờ)</option>
+            <option value="1D">1D</option>
+            <option value="7D">7D</option>
+            <option value="1M">1M</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Tổng vốn khả dụng (USDT)</label>
+          <input id="capitalInput" type="number" value="1000" min="10" step="10" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Rủi ro tối đa / lệnh (%)</label>
+          <input id="riskPctInput" type="number" value="2" min="0.5" max="15" step="0.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">Số lần SL liên tiếp gần đây</label>
+          <input id="lossStreakInput" type="number" value="0" min="0" max="20" step="1" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500" />
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+        <div id="sessionClockBox" class="text-xs text-slate-400">Đang kiểm tra khung giờ phiên Á / Âu / Mỹ (giờ VN)...</div>
+        <button id="btnRecalc" class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-xs transition">
+          Chấm điểm &amp; Tìm điểm vào lệnh theo Livermore
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="space-y-6 hidden">
+      <!-- Discipline Lockout Banner -->
+      <div id="lockoutBanner" class="hidden p-4 rounded-xl bg-rose-950/70 border border-rose-500/60 text-rose-200 text-xs md:text-sm space-y-1">
+        <div class="font-bold text-rose-300 uppercase">⛔ CẢNH BÁO KỶ LUẬT LIVERMORE: KHÓA VÀO LỆNH TẠM THỜI</div>
+        <div id="lockoutReason"></div>
+      </div>
+
+      <!-- Top 4 KPI Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-400 uppercase tracking-wider">Giá Hiện Tại &amp; Cản Tâm Lý</span>
+            <span id="coinTag" class="px-2 py-0.5 text-xs font-bold rounded bg-amber-500/20 text-amber-300">BTC</span>
+          </div>
+          <div id="kpiPrice" class="text-2xl font-bold text-white mt-2">$0.00</div>
+          <div id="kpiRoundLevels" class="text-xs text-slate-400 mt-1">Số tròn / Cản gần: --</div>
+        </div>
+
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-400 uppercase tracking-wider">Cấu Trúc Dow (C1 / C2)</span>
+            <span id="dowBadge" class="px-2 py-0.5 text-xs font-semibold rounded badge-wait">ĐANG XÁC ĐỊNH</span>
+          </div>
+          <div id="kpiDowTrend" class="text-lg font-bold text-white mt-2">--</div>
+          <div id="kpiDowBreakLevel" class="text-xs text-slate-400 mt-1">Mốc xác nhận phá cản: --</div>
+        </div>
+
+        <div class="card p-4">
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-400 uppercase tracking-wider">Hành Động Livermore</span>
+            <span id="actionBadge" class="px-2 py-0.5 text-xs font-semibold rounded badge-wait">CHỜ XÁC NHẬN</span>
+          </div>
+          <div id="kpiEntryTrigger" class="text-lg font-bold text-emerald-400 mt-2">--</div>
+          <div id="kpiEntryNote" class="text-xs text-slate-400 mt-1">--</div>
+        </div>
+
+        <div class="card p-4">
+          <span class="text-xs text-slate-400 uppercase tracking-wider">Stop-Loss Bắt Buộc (No Du Di)</span>
+          <div id="kpiSL" class="text-xl font-bold text-rose-400 mt-2">$0.00</div>
+          <div id="kpiSLNote" class="text-xs text-slate-400 mt-1">--</div>
+        </div>
+      </div>
+
+      <!-- Entry & Exit Plan + Livermore Diagnostics -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="card p-5 lg:col-span-2 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <h2 class="text-base font-bold text-white">Kế Hoạch Vào Lệnh Theo Tín Hiệu Xuyên Phá / Hỗ Trợ C1, Stop-Loss &amp; Chốt Lời Số Lẻ</h2>
+            <span id="regimeTag" class="text-xs font-semibold text-amber-300">--</span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs md:text-sm">
+              <thead>
+                <tr class="border-b border-slate-800 text-xs text-slate-400 uppercase">
+                  <th class="py-2.5 px-3">Mốc Hành Động</th>
+                  <th class="py-2.5 px-3">Mức Giá</th>
+                  <th class="py-2.5 px-3">So Giá Hiện Tại</th>
+                  <th class="py-2.5 px-3">Tỷ Trọng Vốn</th>
+                  <th class="py-2.5 px-3">Luận Điểm Theo Livermore UG</th>
+                </tr>
+              </thead>
+              <tbody id="planBody" class="divide-y divide-slate-800/70"></tbody>
+            </table>
+          </div>
+
+          <div id="capitalBox" class="p-3.5 rounded-lg bg-slate-900/90 border border-slate-800 text-xs text-slate-300 leading-relaxed"></div>
+        </div>
+
+        <div class="card p-5 space-y-4">
+          <h2 class="text-base font-bold text-white border-b border-slate-800 pb-3">Chẩn Đoán Theo Từng Bài Chân Kinh</h2>
+          <div id="diagnosticsBox" class="space-y-3 text-xs text-slate-300 leading-relaxed"></div>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div class="card p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div>
+            <h2 class="text-base font-bold text-white">Biểu Đồ Đường Giá, Cản Dow (C1/C2) &amp; Ngưỡng Vào Lệnh / SL / TP</h2>
+            <p class="text-xs text-slate-400">"Giá phản ánh tất cả" — Chuyển tab giữa <strong class="text-amber-300">M15</strong>, <strong class="text-amber-300">H4</strong> và các khung khác để đối chiếu cấu trúc.</p>
+          </div>
+          <div id="chartTabs" class="flex flex-wrap gap-1.5"></div>
+        </div>
+        <div class="relative h-80 md:h-96 w-full">
+          <canvas id="livermoreChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Timeframe Table -->
+      <div class="card p-5 space-y-4">
+        <h2 class="text-base font-bold text-white border-b border-slate-800 pb-3">Ma Trận Cấu Trúc Dow &amp; Sideway Trên Các Khung Thời Gian (M15, H4, 1D...)</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs md:text-sm">
+            <thead>
+              <tr class="border-b border-slate-800 text-xs text-slate-400 uppercase">
+                <th class="py-2.5 px-3">Khung</th>
+                <th class="py-2.5 px-3">Đỉnh / Đáy C1 gần nhất</th>
+                <th class="py-2.5 px-3">Nhịp C2 / Cản phá</th>
+                <th class="py-2.5 px-3">Biên độ nén (Sideway)</th>
+                <th class="py-2.5 px-3">Cản mềm (MA)</th>
+                <th class="py-2.5 px-3">Kết luận cấu trúc</th>
+              </tr>
+            </thead>
+            <tbody id="tfMatrixBody" class="divide-y divide-slate-800/70"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const datasets = {};
+    let symbolName = 'BTC';
+    let activeTf = null;
+    let chartObj = null;
+
+    const TF_ORDER = ['M15', 'H4', '1D', '7D', '1M', '1Y', 'All'];
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const loadedFilesBar = document.getElementById('loadedFilesBar');
+    const dashboard = document.getElementById('dashboard');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) ingestFiles(e.dataTransfer.files);
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) ingestFiles(e.target.files);
+    });
+
+    document.getElementById('btnReset').addEventListener('click', () => {
+      for (const k in datasets) delete datasets[k];
+      loadedFilesBar.innerHTML = '';
+      loadedFilesBar.classList.add('hidden');
+      dashboard.classList.add('hidden');
+      fileInput.value = '';
+      if (chartObj) { chartObj.destroy(); chartObj = null; }
+    });
+
+    ['moodFilter', 'dowHorizon', 'execTfSelect'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        if (Object.keys(datasets).length) analyzeLivermore();
+      });
+    });
+    document.getElementById('btnRecalc').addEventListener('click', () => {
+      if (Object.keys(datasets).length) analyzeLivermore();
+    });
+
+    function updateSessionBox() {
+      const now = new Date();
+      const vnHour = (now.getUTCHours() + 7) % 24;
+      const vnMin = now.getUTCMinutes();
+      const tStr = `${String(vnHour).padStart(2, '0')}:${String(vnMin).padStart(2, '0')} VN`;
+      let sessionMsg = '';
+      if (vnHour >= 6 && vnHour < 15) {
+        sessionMsg = `Phiên Á (${tStr}) — Lưu ý bài "Thời gian biểu các phiên": lực đẩy/chốt lời thường xuất hiện quanh mốc mở phiên & 6h-6h30/14h-15h.`;
+      } else if (vnHour >= 15 && vnHour < 20) {
+        sessionMsg = `Phiên Âu (${tStr}) — Giao thoa dòng tiền trước phiên Mỹ; tránh vào lệnh thiếu kiên nhẫn.`;
+      } else if (vnHour >= 20 || vnHour < 4) {
+        sessionMsg = `Phiên Mỹ (${tStr}) — Biến động mạnh nhất; ghi nhớ nguyên tắc: giờ phiên Mỹ hay có nhịp xả/quét mạnh, không đu theo cảm xúc.`;
+      } else {
+        sessionMsg = `Vùng chuyển giao phiên (${tStr}) — Thanh khoản mỏng, dễ có râu nến quét thanh khoản.`;
+      }
+      document.getElementById('sessionClockBox').textContent = sessionMsg;
+    }
+    updateSessionBox();
+
+    async function ingestFiles(fileList) {
+      for (const f of fileList) {
+        const txt = await f.text();
+        const parsed = parseCSV(txt, f.name);
+        if (parsed && parsed.rows.length > 5) {
+          datasets[parsed.tf] = parsed;
+          if (parsed.symbol && parsed.symbol !== 'CRYPTO') symbolName = parsed.symbol;
+        }
+      }
+      renderBadges();
+      if (Object.keys(datasets).length) analyzeLivermore();
+    }
+
+    function detectTimeframe(upName, rows) {
+      if (upName.includes('_M15_') || upName.includes('_15M_') || upName.includes('-15M') || upName.includes('_15MIN')) return 'M15';
+      if (upName.includes('_H4_') || upName.includes('_4H_') || upName.includes('-4H') || upName.includes('_240M')) return 'H4';
+      if (upName.includes('_1D_')) return '1D';
+      if (upName.includes('_7D_') || upName.includes('_1W_')) return '7D';
+      if (upName.includes('_1M_')) return '1M';
+      if (upName.includes('_1Y_')) return '1Y';
+      if (upName.includes('_ALL_')) return 'All';
+
+      // Infer from median interval between adjacent timestamps if available
+      const validTimes = rows.map(r => r.t).filter(x => !isNaN(x));
+      if (validTimes.length >= 3) {
+        const diffs = [];
+        for (let i = 1; i < Math.min(validTimes.length, 60); i++) {
+          const dMin = (validTimes[i] - validTimes[i - 1]) / 60000;
+          if (dMin > 0) diffs.push(dMin);
+        }
+        if (diffs.length) {
+          diffs.sort((a, b) => a - b);
+          const medMin = diffs[Math.floor(diffs.length / 2)];
+          if (medMin <= 20) return 'M15';
+          if (medMin >= 180 && medMin <= 300) return 'H4';
+        }
+      }
+
+      const days = (rows[rows.length - 1].t - rows[0].t) / 86400000;
+      if (days <= 1.5) return 'M15';
+      if (days <= 5) return '1D';
+      if (days <= 18) return '7D';
+      if (days <= 90) return '1M';
+      if (days <= 1200) return '1Y';
+      return 'All';
+    }
+
+    function parseCSV(raw, fileName) {
+      const clean = raw.replace(/^\uFEFF/, '').trim();
+      const lines = clean.split(/\r?\n/).filter(l => l.trim().length > 0);
+      if (lines.length < 4) return null;
+
+      const sep = lines[0].includes(';') ? ';' : ',';
+      const cols = lines[0].split(sep).map(c => c.replace(/^"|"$/g, '').trim().toLowerCase());
+      let idxT = cols.findIndex(c => c.includes('time') || c.includes('date'));
+      let idxP = cols.findIndex(c => c.includes('price') || c.includes('close'));
+      if (idxT === -1) idxT = 0;
+      if (idxP === -1) idxP = 1;
+
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].split(sep).map(p => p.replace(/^"|"$/g, '').trim());
+        if (parts.length <= Math.max(idxT, idxP)) continue;
+        const tMs = Date.parse(parts[idxT].replace(' ', 'T') + (parts[idxT].includes('Z') || parts[idxT].includes('+') ? '' : 'Z'));
+        const price = parseFloat(parts[idxP]);
+        if (!isNaN(tMs) && !isNaN(price) && price > 0) {
+          rows.push({ t: tMs, label: parts[idxT], price });
+        }
+      }
+      rows.sort((a, b) => a.t - b.t);
+      if (rows.length < 6) return null;
+
+      const symM = fileName.match(/^([A-Za-z0-9]{2,10})_/);
+      const symbol = symM ? symM[1].toUpperCase() : 'CRYPTO';
+      const tf = detectTimeframe(fileName.toUpperCase(), rows);
+
+      return { fileName, symbol, tf, rows };
+    }
+
+    function sortTfKeys(keys) {
+      return [...keys].sort((a, b) => {
+        const ia = TF_ORDER.indexOf(a);
+        const ib = TF_ORDER.indexOf(b);
+        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+      });
+    }
+
+    function renderBadges() {
+      const keys = sortTfKeys(Object.keys(datasets));
+      if (!keys.length) { loadedFilesBar.classList.add('hidden'); return; }
+      loadedFilesBar.classList.remove('hidden');
+      loadedFilesBar.innerHTML = keys.map(k => {
+        const highlight = (k === 'M15' || k === 'H4') ? 'text-emerald-300 border-emerald-500/40' : 'text-amber-300 border-slate-700';
+        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-800 ${highlight} border"><span class="w-2 h-2 rounded-full bg-emerald-400"></span><strong>${k}</strong> (${datasets[k].rows.length} điểm)</span>`;
+      }).join('');
+    }
+
+    function calcMA(arr, len) {
+      const res = new Array(arr.length);
+      let sum = 0;
+      for (let i = 0; i < arr.length; i++) {
+        sum += arr[i];
+        if (i >= len) sum -= arr[i - len];
+        res[i] = sum / Math.min(i + 1, len);
+      }
+      return res;
+    }
+
+    function extractDowSwings(prices, thresh) {
+      const swings = [{ idx: 0, val: prices[0], type: 'start' }];
+      let dir = null;
+      let hiIdx = 0, hiVal = prices[0];
+      let loIdx = 0, loVal = prices[0];
+
+      for (let i = 1; i < prices.length; i++) {
+        const v = prices[i];
+        if (dir === null) {
+          if (v >= loVal * (1 + thresh)) {
+            dir = 'up';
+            swings.push({ idx: loIdx, val: loVal, type: 'low' });
+            hiIdx = i; hiVal = v;
+          } else if (v <= hiVal * (1 - thresh)) {
+            dir = 'down';
+            swings.push({ idx: hiIdx, val: hiVal, type: 'high' });
+            loIdx = i; loVal = v;
+          } else {
+            if (v > hiVal) { hiIdx = i; hiVal = v; }
+            if (v < loVal) { loIdx = i; loVal = v; }
+          }
+        } else if (dir === 'up') {
+          if (v >= hiVal) { hiIdx = i; hiVal = v; }
+          else if (v <= hiVal * (1 - thresh)) {
+            swings.push({ idx: hiIdx, val: hiVal, type: 'high' });
+            dir = 'down';
+            loIdx = i; loVal = v;
+          }
+        } else if (dir === 'down') {
+          if (v <= loVal) { loIdx = i; loVal = v; }
+          else if (v >= loVal * (1 + thresh)) {
+            swings.push({ idx: loIdx, val: loVal, type: 'low' });
+            dir = 'up';
+            hiIdx = i; hiVal = v;
+          }
+        }
+      }
+      swings.push({ idx: prices.length - 1, val: prices[prices.length - 1], type: 'current' });
+      return swings;
+    }
+
+    function analyzeTfLivermore(tfObj) {
+      const rows = tfObj.rows;
+      const prices = rows.map(r => r.price);
+      const n = prices.length;
+      const curr = prices[n - 1];
+
+      const step = Math.max(1, Math.floor(n / 130));
+      const subPrices = [];
+      const subIndices = [];
+      for (let i = 0; i < n; i += step) { subPrices.push(prices[i]); subIndices.push(i); }
+      if (subIndices[subIndices.length - 1] !== n - 1) {
+        subPrices.push(curr);
+        subIndices.push(n - 1);
+      }
+
+      const threshMap = { M15: 0.006, H4: 0.015, '1D': 0.015, '7D': 0.02, '1M': 0.045, '1Y': 0.08, All: 0.08 };
+      const thresh = threshMap[tfObj.tf] || 0.02;
+
+      const subSwings = extractDowSwings(subPrices, thresh);
+      const swings = subSwings.map(s => ({ idx: subIndices[s.idx], val: s.val, type: s.type }));
+
+      const highs = swings.filter(s => s.type === 'high');
+      const lows = swings.filter(s => s.type === 'low');
+
+      const lastHigh = highs.length ? highs[highs.length - 1].val : Math.max(...prices);
+      const prevHigh = highs.length > 1 ? highs[highs.length - 2].val : lastHigh;
+      const lastLow = lows.length ? lows[lows.length - 1].val : Math.min(...prices);
+      const prevLow = lows.length > 1 ? lows[lows.length - 2].val : lastLow;
+
+      let dowStructure = 'SIDEWAY_COMPRESSION';
+      let dowLabel = 'Sideway / Tích lũy nén biên độ';
+      let breakoutLevel = lastHigh;
+      let breakdownLevel = lastLow;
+
+      if (highs.length >= 2 && lows.length >= 2) {
+        const higherHighs = lastHigh > prevHigh * 1.004;
+        const higherLows = lastLow > prevLow * 1.004;
+        const lowerHighs = lastHigh < prevHigh * 0.996;
+        const lowerLows = lastLow < prevLow * 0.996;
+
+        if (lowerHighs && lowerLows) {
+          if (curr > lastLow * (1 + thresh * 0.8)) {
+            dowStructure = 'DOWN_C1_UP_C2';
+            dowLabel = 'C1 Giảm — Đang có nhịp hồi C2';
+          } else {
+            dowStructure = 'DOWN_C1';
+            dowLabel = 'C1 Giảm (Đỉnh sau thấp hơn, đáy sau thấp hơn)';
+          }
+          breakoutLevel = lastHigh;
+          breakdownLevel = lastLow;
+        } else if (higherHighs && higherLows) {
+          if (curr < lastHigh * (1 - thresh * 0.8)) {
+            dowStructure = 'UP_C1_DOWN_C2';
+            dowLabel = 'C1 Tăng — Đang điều chỉnh C2';
+          } else {
+            dowStructure = 'UP_C1';
+            dowLabel = 'C1 Tăng (Đỉnh sau cao hơn, đáy sau cao hơn)';
+          }
+          breakoutLevel = lastHigh;
+          breakdownLevel = lastLow;
+        } else {
+          dowStructure = 'SIDEWAY_COMPRESSION';
+          dowLabel = 'Sideway (Biên độ nén hội tụ chờ bung phá)';
+          breakoutLevel = Math.max(lastHigh, prevHigh);
+          breakdownLevel = Math.min(lastLow, prevLow);
+        }
+      }
+
+      const wStart = Math.max(0, n - Math.max(10, Math.floor(n * 0.25)));
+      const wSlice = prices.slice(wStart);
+      const wMax = Math.max(...wSlice);
+      const wMin = Math.min(...wSlice);
+      const rangePct = ((wMax - wMin) / wMin) * 100;
+
+      const sidewayThreshMap = { M15: 1.8, H4: 4.0, '1D': 4.5, '7D': 10, '1M': 18, '1Y': 25, All: 30 };
+      const isSideway = rangePct < (sidewayThreshMap[tfObj.tf] || 8);
+
+      const ma20Arr = calcMA(prices, Math.min(20, Math.max(3, Math.floor(n / 15))));
+      const ma50Arr = calcMA(prices, Math.min(50, Math.max(5, Math.floor(n / 6))));
+
+      return {
+        tf: tfObj.tf,
+        curr,
+        swings,
+        lastHigh, prevHigh, lastLow, prevLow,
+        dowStructure, dowLabel,
+        breakoutLevel, breakdownLevel,
+        rangePct, isSideway,
+        ma20: ma20Arr[n - 1],
+        ma50: ma50Arr[n - 1],
+        ma20Arr, ma50Arr
+      };
+    }
+
+    function getRoundLevels(price) {
+      let step = 1000;
+      if (price >= 50000) step = 5000;
+      else if (price >= 10000) step = 2500;
+      else if (price >= 1000) step = 500;
+      else if (price >= 100) step = 50;
+      else if (price >= 1) step = 0.5;
+      else step = 0.0001;
+
+      const lowerRound = Math.floor(price / step) * step;
+      const upperRound = Math.ceil(price / step) * step;
+      return { step, lowerRound, upperRound };
+    }
+
+    function oddExitBelow(target, step) {
+      return target - step * 0.075;
+    }
+
+    function fmt(val) {
+      if (val === null || val === undefined || isNaN(val)) return '--';
+      if (val >= 1000) return '$' + val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (val >= 1) return '$' + val.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+      return '$' + val.toLocaleString('en-US', { minimumFractionDigits: 6, maximumFractionDigits: 6 });
+    }
+
+    function pickAvailable(metrics, candidates, fallback) {
+      for (const c of candidates) {
+        if (metrics[c]) return c;
+      }
+      return fallback;
+    }
+
+    function analyzeLivermore() {
+      const keys = sortTfKeys(Object.keys(datasets));
+      const metrics = {};
+      keys.forEach(k => { metrics[k] = analyzeTfLivermore(datasets[k]); });
+
+      const finestKey = keys[0];
+      const curr = datasets[finestKey].rows[datasets[finestKey].rows.length - 1].price;
+
+      const mood = document.getElementById('moodFilter').value;
+      const horizon = document.getElementById('dowHorizon').value;
+      const execTfPref = document.getElementById('execTfSelect').value;
+      const capital = parseFloat(document.getElementById('capitalInput').value) || 1000;
+      const riskPct = parseFloat(document.getElementById('riskPctInput').value) || 2;
+      const lossStreak = parseInt(document.getElementById('lossStreakInput').value, 10) || 0;
+
+      let primaryTfKey;
+      if (horizon === 'h4_m15') primaryTfKey = pickAvailable(metrics, ['H4', '1D', 'M15', '1M'], keys[0]);
+      else if (horizon === 'm15_scalp') primaryTfKey = pickAvailable(metrics, ['M15', 'H4', '1D'], keys[0]);
+      else if (horizon === 'h4_swing') primaryTfKey = pickAvailable(metrics, ['H4', '1D', '7D', '1M'], keys[0]);
+      else if (horizon === 'position') primaryTfKey = pickAvailable(metrics, ['1Y', 'All', '1M', 'H4'], keys[0]);
+      else if (horizon === 'intraday') primaryTfKey = pickAvailable(metrics, ['1D', '7D', 'H4', 'M15'], keys[0]);
+      else primaryTfKey = pickAvailable(metrics, ['1M', '7D', 'H4', '1Y'], keys[0]);
+
+      let execTfKey;
+      if (execTfPref !== 'auto' && metrics[execTfPref]) {
+        execTfKey = execTfPref;
+      } else {
+        execTfKey = pickAvailable(metrics, ['M15', 'H4', '1D', '7D', '1M'], primaryTfKey);
+      }
+
+      const mPrimary = metrics[primaryTfKey];
+      const mExec = metrics[execTfKey];
+      const { step, lowerRound, upperRound } = getRoundLevels(curr);
+
+      const lockoutReasons = [];
+      if (mood === 'revenge') lockoutReasons.push('Đang có tâm lý cay cú / muốn gỡ lệnh thua (Bài 3.2 & Bài 5: "Khi say đòn của market, kỹ năng phán đoán trở về 0").');
+      if (mood === 'fomo_hype') lockoutReasons.push('Đang hưng phấn / tiếc nuối FOMO (Bài 4.2 & Bài 5: "Khi hưng phấn hay xúc động, bỏ trade").');
+      if (mood === 'emotional') lockoutReasons.push('Đang buồn / bực bội / xúc động (Bài 5: "Khi buồn, vui, cãi nhau... không vào lệnh").');
+      if (lossStreak >= 5) lockoutReasons.push(`Đã dính ${lossStreak} lần cắt lỗ liên tiếp (Bài 2.3: chạm ngưỡng cảnh báo dừng hệ thống/lệnh để reset tâm lý, tránh bào mòn vốn).`);
+
+      const isLocked = lockoutReasons.length > 0;
+      const lockoutBanner = document.getElementById('lockoutBanner');
+      if (isLocked) {
+        lockoutBanner.classList.remove('hidden');
+        document.getElementById('lockoutReason').innerHTML = lockoutReasons.map(r => `<div>• ${r}</div>`).join('') +
+          `<div class="mt-1 font-semibold text-amber-300">→ Hành động chuẩn Livermore: ĐỨNG NGOÀI ("Đứng ngoài thị trường là đã chiến thắng 80%").</div>`;
+      } else {
+        lockoutBanner.classList.add('hidden');
+      }
+
+      const isDowDown = mPrimary.dowStructure === 'DOWN_C1' || mPrimary.dowStructure === 'DOWN_C1_UP_C2';
+      const isDowUp = mPrimary.dowStructure === 'UP_C1' || mPrimary.dowStructure === 'UP_C1_DOWN_C2';
+      const isSideway = mPrimary.dowStructure === 'SIDEWAY_COMPRESSION' || mPrimary.isSideway;
+
+      const breakRes = mExec.breakoutLevel > curr * 1.003 ? mExec.breakoutLevel : (mPrimary.lastHigh > curr * 1.004 ? mPrimary.lastHigh : upperRound);
+
+      const entryBreakout = breakRes * 1.0025;
+      const entryRetest = Math.min(entryBreakout * 0.988, Math.max(mExec.lastLow * 0.997, curr * 0.982));
+      const entryDeep = Math.min(entryRetest * 0.975, Math.max(mPrimary.lastLow * 0.992, lowerRound * 0.988));
+
+      const slAnchor = isDowDown ? Math.min(mExec.lastLow, entryDeep) : Math.min(mExec.lastLow, entryRetest);
+      const stopLoss = slAnchor * 0.985;
+
+      const rawTp1 = Math.max(entryBreakout * 1.025, (mPrimary.lastHigh > entryBreakout * 1.015 ? mPrimary.lastHigh : upperRound));
+      const rawTp2 = Math.max(rawTp1 * 1.045, Math.max(upperRound + step, mPrimary.prevHigh > rawTp1 ? mPrimary.prevHigh : rawTp1 * 1.08));
+      const tp1 = oddExitBelow(rawTp1, step);
+      const tp2 = oddExitBelow(rawTp2, step);
+
+      dashboard.classList.remove('hidden');
+      document.getElementById('coinTag').textContent = symbolName;
+      document.getElementById('kpiPrice').textContent = fmt(curr);
+      document.getElementById('kpiRoundLevels').textContent = `Cản số tròn: Hỗ trợ ${fmt(lowerRound)} | Kháng cự ${fmt(upperRound)}`;
+
+      const dowBadge = document.getElementById('dowBadge');
+      if (isDowUp) {
+        dowBadge.className = 'px-2 py-0.5 text-xs font-semibold rounded badge-go';
+        dowBadge.textContent = `C1 TĂNG (${primaryTfKey})`;
+      } else if (isDowDown) {
+        dowBadge.className = 'px-2 py-0.5 text-xs font-semibold rounded badge-stop';
+        dowBadge.textContent = `C1 GIẢM (${primaryTfKey})`;
+      } else {
+        dowBadge.className = 'px-2 py-0.5 text-xs font-semibold rounded badge-wait';
+        dowBadge.textContent = `SIDEWAY (${primaryTfKey})`;
+      }
+      document.getElementById('kpiDowTrend').textContent = mPrimary.dowLabel;
+      document.getElementById('kpiDowBreakLevel').textContent = `Khung C1: ${primaryTfKey} • Khung vào: ${execTfKey} • Cản phá ${fmt(breakRes)}`;
+
+      const actionBadge = document.getElementById('actionBadge');
+      let regimeText = '';
+      if (isLocked) {
+        actionBadge.className = 'px-2 py-0.5 text-xs font-semibold rounded badge-stop';
+        actionBadge.textContent = 'KHÓA LỆNH (TÂM LÝ)';
+        document.getElementById('kpiEntryTrigger').textContent = 'ĐỨNG NGOÀI (0% VỐN)';
+        document.getElementById('kpiEntryNote').textContent = 'Ưu tiên giữ tiền mặt & ổn định tâm lý.';
+        regimeText = `Chế độ: Kỷ luật tâm lý — Đứng ngoài (${primaryTfKey} / ${execTfKey})`;
+      } else if (isDowDown && mPrimary.dowStructure === 'DOWN_C1') {
+        actionBadge.className = 'px-2 py-0.5 text-xs font-semibold rounded badge-stop';
+        actionBadge.textContent = 'C1 GIẢM — CẤM BẮT ĐÁY MÙ';
+        document.getElementById('kpiEntryTrigger').textContent = `Chỉ rình phá cản ${fmt(entryBreakout)}`;
+        document.getElementById('kpiEntryNote').textContent = `C1 ${primaryTfKey} đang giảm — chờ xác nhận phá cản trên ${execTfKey}.`;
+        regimeText = `Chế độ: C1 Giảm (${primaryTfKey}) — Tinh chỉnh vào/thoát trên ${execTfKey}`;
+      } else if (isSideway) {
+        actionBadge.className = 'px-2 py-0.5 text-xs font-semibold rounded badge-wait';
+        actionBadge.textContent = 'SIDEWAY — CHỜ BUNG NÉN';
+        document.getElementById('kpiEntryTrigger').textContent = `Breakout > ${fmt(entryBreakout)}`;
+        document.getElementById('kpiEntryNote').textContent = `Biên nén ${primaryTfKey}: ${mPrimary.rangePct.toFixed(1)}% • Chờ xác nhận trên ${execTfKey}.`;
+        regimeText = `Chế độ: Sideway (${primaryTfKey}) — Chờ bung nén trên ${execTfKey}`;
+      } else {
+        actionBadge.className = 'px-2 py-0.5 text-xs font-semibold rounded badge-go';
+        actionBadge.textContent = 'C1 TĂNG — CANH XUYÊN PHÁ / TEST CẢN';
+        document.getElementById('kpiEntryTrigger').textContent = `${fmt(entryRetest)} – ${fmt(entryBreakout)}`;
+        document.getElementById('kpiEntryNote').textContent = `Thuận C1 ${primaryTfKey}, canh điểm vào trên ${execTfKey}.`;
+        regimeText = `Chế độ: Thuận C1 Tăng (${primaryTfKey}) — Vào lệnh trên ${execTfKey}`;
+      }
+      document.getElementById('regimeTag').textContent = regimeText;
+
+      const slPctFromCurr = ((stopLoss - curr) / curr) * 100;
+      document.getElementById('kpiSL').textContent = fmt(stopLoss);
+      document.getElementById('kpiSLNote').textContent = `Cách giá hiện tại ${slPctFromCurr.toFixed(2)}% • Thủng nền là cắt tuyệt đối`;
+
+      const effectiveCap = isLocked ? 0 : capital;
+      const w1 = isDowDown ? 25 : 40;
+      const w2 = isDowDown ? 35 : 35;
+      const w3 = isDowDown ? 40 : 25;
+
+      const planItems = [
+        {
+          label: `Vào Lệnh 1 (Xuyên phá cản trên ${execTfKey})`,
+          price: entryBreakout,
+          alloc: isLocked ? '0% ($0)' : `${w1}% ($${(effectiveCap * w1 / 100).toFixed(0)})`,
+          basis: `Bài 3: Giá giao dịch vượt cản ${fmt(breakRes)} trên ${execTfKey} — xác nhận C1 ${primaryTfKey}.`,
+          cls: 'text-emerald-400 font-semibold'
+        },
+        {
+          label: `Vào Lệnh 2 (Kiểm định lại cản / Hỗ trợ ${execTfKey})`,
+          price: entryRetest,
+          alloc: isLocked ? '0% ($0)' : `${w2}% ($${(effectiveCap * w2 / 100).toFixed(0)})`,
+          basis: 'Bài 2.4 & 6: Giá test lại cản cũ/hỗ trợ sau phá cản hoặc nhịp điều chỉnh C2.',
+          cls: 'text-emerald-300 font-semibold'
+        },
+        {
+          label: 'Vào Lệnh 3 (Vùng phòng thủ cuối)',
+          price: entryDeep,
+          alloc: isLocked ? '0% ($0)' : `${w3}% ($${(effectiveCap * w3 / 100).toFixed(0)})`,
+          basis: 'Vùng cầu sâu sát ngưỡng vô hiệu hóa cấu trúc (không dồn quá tay).',
+          cls: 'text-sky-300 font-semibold'
+        },
+        {
+          label: 'Stop-Loss Cứng (Bắt buộc tuân thủ)',
+          price: stopLoss,
+          alloc: '100% vị thế',
+          basis: 'Bài 2.2 & 3.2: Phá vỡ cấu trúc đáy -> cắt ngay, không du di, không dời SL.',
+          cls: 'text-rose-400 font-bold'
+        },
+        {
+          label: 'Take-Profit 1 (Chốt lời số lẻ trước cản)',
+          price: tp1,
+          alloc: 'Chốt 50% vị thế',
+          basis: `Bài 2.4: Đặt mức chốt số lẻ dưới vùng cản/số tròn (${fmt(rawTp1)}) để không xếp hàng với đám đông.`,
+          cls: 'text-amber-300 font-semibold'
+        },
+        {
+          label: 'Take-Profit 2 (Chốt lời mục tiêu tiếp theo)',
+          price: tp2,
+          alloc: 'Chốt 50% còn lại',
+          basis: `Bài 4.4: Theo xu thế nhưng biết "đủ" thì thoát, chốt số lẻ trước kháng cự ${fmt(rawTp2)}.`,
+          cls: 'text-amber-400 font-semibold'
+        }
+      ];
+
+      document.getElementById('planBody').innerHTML = planItems.map(item => {
+        const diff = ((item.price - curr) / curr) * 100;
+        return `
+          <tr class="hover:bg-slate-800/40">
+            <td class="py-2.5 px-3 ${item.cls}">${item.label}</td>
+            <td class="py-2.5 px-3 font-mono font-semibold text-white">${fmt(item.price)}</td>
+            <td class="py-2.5 px-3 font-mono ${diff < 0 ? 'text-rose-300' : 'text-emerald-300'}">${diff >= 0 ? '+' : ''}${diff.toFixed(2)}%</td>
+            <td class="py-2.5 px-3 text-slate-200">${item.alloc}</td>
+            <td class="py-2.5 px-3 text-slate-400">${item.basis}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const avgEntry = (entryBreakout * w1 + entryRetest * w2 + entryDeep * w3) / 100;
+      const riskPerUnitPct = Math.max(0.5, ((avgEntry - stopLoss) / avgEntry) * 100);
+      const maxAllowedLossUsd = capital * (riskPct / 100);
+      const maxSafePositionUsd = maxAllowedLossUsd / (riskPerUnitPct / 100);
+      const finalPosUsd = isLocked ? 0 : Math.min(capital, maxSafePositionUsd);
+
+      document.getElementById('capitalBox').innerHTML = `
+        <strong class="text-amber-300">Quản lý vốn &amp; khối lượng (Bài 1 &amp; 3.2):</strong>
+        Với vốn <strong>$${capital.toLocaleString()}</strong> và giới hạn rủi ro <strong>${riskPct}% ($${maxAllowedLossUsd.toFixed(2)})</strong>, khoảng cách từ giá vào bình quân <strong>${fmt(avgEntry)}</strong> tới SL <strong>${fmt(stopLoss)}</strong> là <strong>${riskPerUnitPct.toFixed(2)}%</strong>.
+        Khối lượng vào lệnh an toàn tối đa là <strong class="text-emerald-300">$${finalPosUsd.toFixed(2)}</strong>.
+        ${lossStreak > 0 ? `<span class="text-amber-300">Lưu ý: Bạn đang có ${lossStreak} lệnh SL liên tiếp — tuyệt đối không tăng volume để "gỡ" (Bài 3.2).</span>` : ''}
+      `;
+
+      const m15Info = metrics['M15'] ? ` • <strong>M15:</strong> ${metrics['M15'].dowLabel}` : '';
+      const h4Info = metrics['H4'] ? ` • <strong>H4:</strong> ${metrics['H4'].dowLabel}` : '';
+
+      const diag = [
+        `<div><strong class="text-white">• Bài 3 (Lý thuyết Dow C1/C2):</strong> Khung C1 <strong>${primaryTfKey}</strong> đang là <strong>${mPrimary.dowLabel}</strong>, khung vào lệnh <strong>${execTfKey}</strong> có cản phá <strong>${fmt(breakRes)}</strong>${m15Info}${h4Info}.</div>`,
+        `<div><strong class="text-white">• Bài 2.4 &amp; 7 (Cản &amp; Sideway):</strong> Biên độ dao động gần nhất trên khung <strong>${primaryTfKey}</strong> là <strong>${mPrimary.rangePct.toFixed(2)}%</strong> ${mPrimary.isSideway ? '(đang nén Sideway — chờ bung phá mạnh)' : '(đang mở biên độ xu hướng)'}. Cản tâm lý số tròn gần nhất nằm quanh <strong>${fmt(lowerRound)}</strong> và <strong>${fmt(upperRound)}</strong>.</div>`,
+        `<div><strong class="text-white">• Bài 4 &amp; 5 (Đám đông &amp; Tâm lý):</strong> Đừng mua vì "nghĩ" giá rẻ khi xu thế C1 chưa xác nhận đảo chiều. Càng nhiều người chờ bắt đáy sớm càng dễ bị quét; hãy để đường giá tự chứng minh lực mua.</div>`,
+        `<div><strong class="text-white">• Bài 2.2 (Kỷ luật):</strong> Công cụ chỉ là xác suất — chén thánh nằm ở sự kỷ luật cắt lỗ tại <strong>${fmt(stopLoss)}</strong> và không tham lam khi đã đạt mục tiêu.</div>`
+      ];
+      document.getElementById('diagnosticsBox').innerHTML = diag.join('');
+
+      if (!activeTf || !datasets[activeTf]) {
+        activeTf = metrics[execTfKey] ? execTfKey : keys[0];
+      }
+      renderChartTabs(keys, metrics, { entryBreakout, entryRetest, stopLoss, tp1, breakRes });
+      drawLivermoreChart(activeTf, metrics[activeTf], { entryBreakout, entryRetest, stopLoss, tp1, breakRes });
+
+      document.getElementById('tfMatrixBody').innerHTML = keys.map(k => {
+        const m = metrics[k];
+        const cls = m.dowStructure.includes('UP_C1') ? 'badge-go' : (m.dowStructure.includes('DOWN_C1') ? 'badge-stop' : 'badge-wait');
+        const tfTagCls = (k === 'M15' || k === 'H4') ? 'text-emerald-300' : 'text-amber-300';
+        return `
+          <tr class="hover:bg-slate-800/40">
+            <td class="py-2.5 px-3 font-bold ${tfTagCls}">${m.tf}</td>
+            <td class="py-2.5 px-3 font-mono text-xs text-slate-200">Đỉnh ${fmt(m.lastHigh)} / Đáy ${fmt(m.lastLow)}</td>
+            <td class="py-2.5 px-3 font-mono text-xs text-slate-300">Cản phá: ${fmt(m.breakoutLevel)}</td>
+            <td class="py-2.5 px-3 font-mono text-xs ${m.isSideway ? 'text-amber-300' : 'text-slate-300'}">${m.rangePct.toFixed(2)}% ${m.isSideway ? '(Sideway)' : '(Trend)'}</td>
+            <td class="py-2.5 px-3 font-mono text-xs text-purple-300">MA20: ${fmt(m.ma20)}</td>
+            <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded text-xs font-semibold ${cls}">${m.dowLabel}</span></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderChartTabs(keys, metrics, levels) {
+      const box = document.getElementById('chartTabs');
+      box.innerHTML = keys.map(k => {
+        const active = k === activeTf;
+        return `<button data-tf="${k}" class="px-3 py-1 rounded-md text-xs font-semibold transition ${active ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">${k}</button>`;
+      }).join('');
+      box.querySelectorAll('button').forEach(b => {
+        b.addEventListener('click', () => {
+          activeTf = b.getAttribute('data-tf');
+          renderChartTabs(keys, metrics, levels);
+          drawLivermoreChart(activeTf, metrics[activeTf], levels);
+        });
+      });
+    }
+
+    function drawLivermoreChart(tfKey, metric, levels) {
+      const rows = datasets[tfKey].rows;
+      const step = Math.max(1, Math.floor(rows.length / 300));
+      const labels = [];
+      const prices = [];
+      const ma20s = [];
+
+      for (let i = 0; i < rows.length; i += step) {
+        labels.push(rows[i].label.slice(0, 16));
+        prices.push(rows[i].price);
+        ma20s.push(metric.ma20Arr[i]);
+      }
+      if (labels[labels.length - 1] !== rows[rows.length - 1].label.slice(0, 16)) {
+        labels.push(rows[rows.length - 1].label.slice(0, 16));
+        prices.push(rows[rows.length - 1].price);
+        ma20s.push(metric.ma20Arr[rows.length - 1]);
+      }
+
+      const len = labels.length;
+      const line = (v) => new Array(len).fill(v);
+
+      const ctx = document.getElementById('livermoreChart').getContext('2d');
+      if (chartObj) chartObj.destroy();
+
+      chartObj = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: `Giá ${symbolName} (${tfKey})`,
+              data: prices,
+              borderColor: '#38bdf8',
+              backgroundColor: 'rgba(56, 189, 248, 0.08)',
+              borderWidth: 2,
+              pointRadius: 0,
+              fill: true,
+              tension: 0.12
+            },
+            {
+              label: 'Cản mềm MA20',
+              data: ma20s,
+              borderColor: '#c084fc',
+              borderWidth: 1.4,
+              pointRadius: 0,
+              borderDash: [4, 4]
+            },
+            {
+              label: `Cản xác nhận C1 (${fmt(levels.breakRes)})`,
+              data: line(levels.breakRes),
+              borderColor: '#f59e0b',
+              borderWidth: 1.4,
+              pointRadius: 0,
+              borderDash: [6, 3]
+            },
+            {
+              label: `Entry Xuyên Phá (${fmt(levels.entryBreakout)})`,
+              data: line(levels.entryBreakout),
+              borderColor: '#10b981',
+              borderWidth: 1.5,
+              pointRadius: 0,
+              borderDash: [5, 3]
+            },
+            {
+              label: `Entry Test Cản (${fmt(levels.entryRetest)})`,
+              data: line(levels.entryRetest),
+              borderColor: '#34d399',
+              borderWidth: 1.3,
+              pointRadius: 0,
+              borderDash: [2, 3]
+            },
+            {
+              label: `Stop-Loss Cứng (${fmt(levels.stopLoss)})`,
+              data: line(levels.stopLoss),
+              borderColor: '#f43f5e',
+              borderWidth: 1.8,
+              pointRadius: 0
+            },
+            {
+              label: `TP1 Số Lẻ (${fmt(levels.tp1)})`,
+              data: line(levels.tp1),
+              borderColor: '#22d3ee',
+              borderWidth: 1.3,
+              pointRadius: 0,
+              borderDash: [4, 4]
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { labels: { color: '#cbd5e1', font: { size: 11 } } }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#64748b', maxTicksLimit: 8, font: { size: 10 } },
+              grid: { color: 'rgba(30, 41, 59, 0.5)' }
+            },
+            y: {
+              ticks: {
+                color: '#94a3b8',
+                font: { size: 11 },
+                callback: (v) => fmt(v)
+              },
+              grid: { color: 'rgba(30, 41, 59, 0.6)' }
+            }
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
